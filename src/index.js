@@ -16,6 +16,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 // Side-effect imports for Babylon.js tree-shaking
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent'
 import '@babylonjs/core/Meshes/thinInstanceMesh'
+import '@babylonjs/core/Culling/ray'
 
 import {
   MAP_WIDTH,
@@ -31,6 +32,7 @@ import { setupCamera, updateCamera } from './camera.js'
 import { getPathTiles } from './path.js'
 import { getState, startWave, updateWaveTime } from './store.js'
 import { initEnemyManager, updateEnemyManager, disposeEnemyManager } from './managers/EnemyManager.js'
+import { initTowerManager, updateTowerManager, disposeTowerManager } from './managers/TowerManager.js'
 
 let engine = null
 let scene = null
@@ -68,12 +70,7 @@ export function init(canvas, container, onBack) {
 
   // Initialize managers
   initEnemyManager(scene)
-
-  // TEST: Start a wave after 1 second for testing
-  setTimeout(() => {
-    console.log('Starting test wave...')
-    startWave()
-  }, 1000)
+  initTowerManager(scene, canvas)
 
   // Game loop
   let lastTime = performance.now()
@@ -86,8 +83,10 @@ export function init(canvas, container, onBack) {
     // Update camera
     updateCamera(dt)
 
-    // Update wave time and enemies
+    // Update managers
     const state = getState()
+    updateTowerManager(dt)
+
     if (state.phase === 'WAVE') {
       updateWaveTime(dt)
       updateEnemyManager(dt)
@@ -106,6 +105,7 @@ export function init(canvas, container, onBack) {
     window.removeEventListener('resize', onResize)
     if (cleanupCamera) cleanupCamera()
     disposeEnemyManager()
+    disposeTowerManager()
     engine.stopRenderLoop()
     scene.dispose()
     engine.dispose()

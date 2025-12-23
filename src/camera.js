@@ -99,12 +99,12 @@ export function updateCamera(dt) {
     moveZ -= forward.z
   }
   if (keys.a) {
-    moveX -= right.x
-    moveZ -= right.z
-  }
-  if (keys.d) {
     moveX += right.x
     moveZ += right.z
+  }
+  if (keys.d) {
+    moveX -= right.x
+    moveZ -= right.z
   }
 
   // Normalize diagonal movement

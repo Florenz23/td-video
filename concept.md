@@ -27,11 +27,13 @@ When using modular Babylon.js imports (tree-shaking), you must import side-effec
 import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent'  // For shadows
 import '@babylonjs/core/Rendering/edgesRenderer'                       // For edge rendering
 import '@babylonjs/core/Meshes/thinInstanceMesh'                       // For thin instances
+import '@babylonjs/core/Culling/ray'                                   // For scene.pick() raycasting
 
 // Common gotchas:
 // - Use Mesh.MergeMeshes(), NOT MeshBuilder.MergeMeshes()
 // - Import { Mesh } from '@babylonjs/core/Meshes/mesh' for MergeMeshes
 // - Thin instances require the thinInstanceMesh side-effect import
+// - scene.pick() requires the ray side-effect import
 ```
 
 ### Commands
