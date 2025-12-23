@@ -102,6 +102,7 @@ export const TOWERS = {
     range: 5,
     fireRate: 0.8,
     damage: 10,
+    projectileSpeed: 15,
     aoeRadius: 2.0,
     slowMultiplier: 0.5,
     slowDuration: 2.5

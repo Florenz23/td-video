@@ -82,11 +82,12 @@ function createHealthBarMeshes() {
   healthBarBgBase.material = bgMat
   healthBarBgBase.isVisible = false
   healthBarBgBase.billboardMode = 7 // Always face camera
+  healthBarBgBase.renderingGroupId = 1
 
   // Health bar foreground (base mesh for cloning)
   healthBarFgBase = MeshBuilder.CreatePlane('healthBarFgBase', {
     width: 0.8,
-    height: 0.1
+    height: 0.08
   }, scene)
   const fgMat = new StandardMaterial('healthBarFgMat', scene)
   fgMat.diffuseColor = Color3.FromHexString('#00FF00')
@@ -95,6 +96,7 @@ function createHealthBarMeshes() {
   healthBarFgBase.material = fgMat
   healthBarFgBase.isVisible = false
   healthBarFgBase.billboardMode = 7
+  healthBarFgBase.renderingGroupId = 2
 }
 
 function updateHealthBarInstances(bgData, fgData) {
@@ -120,16 +122,16 @@ function updateHealthBarInstances(bgData, fgData) {
     const bg = healthBarBgInstances[i]
     const fg = healthBarFgInstances[i]
 
-    // Update background position
-    bg.position.set(bgData[i].x, bgData[i].y, bgData[i].z)
-    bg.isVisible = true
+    // Hide background - we only show the green bar
+    bg.isVisible = false
 
-    // Update foreground position and scale
+    // Update foreground position and scale (left-aligned)
     const scale = fgData[i].scale
-    fg.position.set(fgData[i].x, fgData[i].y, fgData[i].z - 0.01)
+    const barWidth = 0.8
+    // Offset to keep left edge fixed: move center left as bar shrinks
+    const offsetX = -(1 - scale) * (barWidth / 2)
+    fg.position.set(bgData[i].x + offsetX, bgData[i].y, bgData[i].z)
     fg.scaling.x = scale
-    // Offset to anchor left
-    fg.position.x -= (1 - scale) * 0.4
     fg.isVisible = true
 
     // Update color based on HP percent
