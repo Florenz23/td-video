@@ -33,6 +33,7 @@ import { getPathTiles } from './path.js'
 import { getState, startWave, updateWaveTime } from './store.js'
 import { initEnemyManager, updateEnemyManager, disposeEnemyManager } from './managers/EnemyManager.js'
 import { initTowerManager, updateTowerManager, disposeTowerManager } from './managers/TowerManager.js'
+import { initProjectileManager, updateProjectileManager, disposeProjectileManager } from './managers/ProjectileManager.js'
 
 let engine = null
 let scene = null
@@ -71,6 +72,15 @@ export function init(canvas, container, onBack) {
   // Initialize managers
   initEnemyManager(scene)
   initTowerManager(scene, canvas)
+  initProjectileManager(scene)
+
+  // TEST: Press SPACE to start wave (temporary until UI is built)
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && getState().phase === 'BUILD') {
+      console.log('Starting wave...')
+      startWave()
+    }
+  })
 
   // Game loop
   let lastTime = performance.now()
@@ -90,6 +100,7 @@ export function init(canvas, container, onBack) {
     if (state.phase === 'WAVE') {
       updateWaveTime(dt)
       updateEnemyManager(dt)
+      updateProjectileManager(dt)
     }
 
     // Render
@@ -106,6 +117,7 @@ export function init(canvas, container, onBack) {
     if (cleanupCamera) cleanupCamera()
     disposeEnemyManager()
     disposeTowerManager()
+    disposeProjectileManager()
     engine.stopRenderLoop()
     scene.dispose()
     engine.dispose()
