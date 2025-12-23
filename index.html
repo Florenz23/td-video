@@ -15,6 +15,7 @@
       height: 100%;
       overflow: hidden;
       background: #000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     #game-container {
       width: 100%;
@@ -27,11 +28,299 @@
       display: block;
       outline: none;
     }
+
+    /* HUD Overlay */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Top Left - Resources */
+    #resources {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .resource {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 8px 16px;
+      border-radius: 8px;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      min-width: 120px;
+    }
+    .resource-icon {
+      font-size: 24px;
+    }
+    #gold-value {
+      color: #FFD700;
+    }
+    #lives-value {
+      color: #FF6B6B;
+    }
+
+    /* Top Right - Phase & Wave */
+    #phase-info {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      text-align: right;
+    }
+    #wave-number {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 8px 16px;
+      border-radius: 8px;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    #phase-indicator {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    #phase-indicator.build {
+      color: #4CAF50;
+    }
+    #phase-indicator.wave {
+      color: #FF9800;
+    }
+    #phase-indicator.game-over {
+      color: #F44336;
+    }
+
+    /* Center Button */
+    #center-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+    }
+    #action-btn {
+      background: linear-gradient(180deg, #4CAF50 0%, #388E3C 100%);
+      border: 3px solid #2E7D32;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      padding: 16px 48px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s;
+    }
+    #action-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+    }
+    #action-btn:active {
+      transform: scale(0.98);
+    }
+    #action-btn.restart {
+      background: linear-gradient(180deg, #F44336 0%, #C62828 100%);
+      border-color: #B71C1C;
+    }
+    #action-btn.hidden {
+      display: none;
+    }
+
+    /* Bottom - Tower Selection */
+    #tower-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      pointer-events: auto;
+    }
+    .tower-btn {
+      width: 80px;
+      height: 100px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 3px solid #555;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .tower-btn:hover {
+      border-color: #888;
+      transform: translateY(-4px);
+    }
+    .tower-btn.selected {
+      border-color: #4CAF50;
+      box-shadow: 0 0 12px rgba(76, 175, 80, 0.6);
+    }
+    .tower-btn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .tower-btn.disabled:hover {
+      transform: none;
+      border-color: #555;
+    }
+    .tower-icon {
+      font-size: 32px;
+    }
+    .tower-name {
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .tower-cost {
+      color: #FFD700;
+      font-size: 11px;
+    }
+    .tower-hotkey {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      color: #888;
+      font-size: 10px;
+      font-weight: bold;
+    }
+
+    /* Bottom Right - Minimap */
+    #minimap-container {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #555;
+      border-radius: 8px;
+      padding: 4px;
+      pointer-events: auto;
+    }
+    #minimap {
+      width: 120px;
+      height: 200px;
+      display: block;
+      cursor: pointer;
+    }
+
+    /* Game Over Overlay */
+    #game-over-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+    #game-over-overlay.hidden {
+      display: none;
+    }
+    #game-over-text {
+      color: #F44336;
+      font-size: 64px;
+      font-weight: bold;
+      text-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+      margin-bottom: 16px;
+    }
+    #game-over-stats {
+      color: white;
+      font-size: 24px;
+      margin-bottom: 32px;
+    }
   </style>
 </head>
 <body>
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+      <!-- Top Left - Resources -->
+      <div id="resources">
+        <div class="resource">
+          <span class="resource-icon">💰</span>
+          <span id="gold-value">3000</span>
+        </div>
+        <div class="resource">
+          <span class="resource-icon">❤️</span>
+          <span id="lives-value">20</span>
+        </div>
+      </div>
+
+      <!-- Top Right - Phase Info -->
+      <div id="phase-info">
+        <div id="wave-number">Wave 1</div>
+        <div id="phase-indicator" class="build">Build Phase</div>
+      </div>
+
+      <!-- Center Button -->
+      <div id="center-button">
+        <button id="action-btn">Start Wave</button>
+      </div>
+
+      <!-- Bottom - Tower Selection -->
+      <div id="tower-bar">
+        <div class="tower-btn selected" data-tower="arrow">
+          <span class="tower-hotkey">1</span>
+          <span class="tower-icon">🏹</span>
+          <span class="tower-name">Arrow</span>
+          <span class="tower-cost">50g</span>
+        </div>
+        <div class="tower-btn" data-tower="flame">
+          <span class="tower-hotkey">2</span>
+          <span class="tower-icon">🔥</span>
+          <span class="tower-name">Flame</span>
+          <span class="tower-cost">100g</span>
+        </div>
+        <div class="tower-btn" data-tower="frost">
+          <span class="tower-hotkey">3</span>
+          <span class="tower-icon">❄️</span>
+          <span class="tower-name">Frost</span>
+          <span class="tower-cost">120g</span>
+        </div>
+        <div class="tower-btn" data-tower="lightning">
+          <span class="tower-hotkey">4</span>
+          <span class="tower-icon">⚡</span>
+          <span class="tower-name">Lightning</span>
+          <span class="tower-cost">150g</span>
+        </div>
+      </div>
+
+      <!-- Bottom Right - Minimap -->
+      <div id="minimap-container">
+        <canvas id="minimap" width="120" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-overlay" class="hidden">
+      <div id="game-over-text">GAME OVER</div>
+      <div id="game-over-stats">Wave 1</div>
+      <button id="action-btn" class="restart">Try Again</button>
+    </div>
   </div>
   <script type="module" src="/src/index.js"></script>
 </body>

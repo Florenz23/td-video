@@ -35,6 +35,8 @@ import { initEnemyManager, updateEnemyManager, disposeEnemyManager, resetEnemyMa
 import { initTowerManager, updateTowerManager, disposeTowerManager, resetTowerManager } from './managers/TowerManager.js'
 import { initProjectileManager, updateProjectileManager, disposeProjectileManager, resetProjectileManager } from './managers/ProjectileManager.js'
 import { initEffectsManager, updateEffectsManager, disposeEffectsManager, resetEffectsManager } from './managers/EffectsManager.js'
+import { initUIManager, updateUI, disposeUIManager, resetUIManager } from './managers/UIManager.js'
+import { initMinimapManager, updateMinimapManager, disposeMinimapManager, resetMinimapManager } from './managers/MinimapManager.js'
 
 let engine = null
 let scene = null
@@ -76,6 +78,8 @@ export function init(canvas, container, onBack) {
   initTowerManager(scene, canvas)
   initProjectileManager(scene)
   initEffectsManager(scene)
+  initUIManager(resetGame)
+  initMinimapManager()
 
   // Keyboard controls for game flow
   const onGameKeyDown = (e) => {
@@ -135,6 +139,10 @@ export function init(canvas, container, onBack) {
     // Always update effects (ragdolls, particles continue after wave)
     updateEffectsManager(dt)
 
+    // Update UI
+    updateUI()
+    updateMinimapManager()
+
     // Render
     scene.render()
   })
@@ -152,6 +160,8 @@ export function init(canvas, container, onBack) {
     disposeTowerManager()
     disposeProjectileManager()
     disposeEffectsManager()
+    disposeUIManager()
+    disposeMinimapManager()
     engine.stopRenderLoop()
     scene.dispose()
     engine.dispose()
@@ -298,6 +308,8 @@ function resetGame() {
   resetEnemyManager()
   resetProjectileManager()
   resetEffectsManager()
+  resetUIManager()
+  resetMinimapManager()
 
   // Reset game over flag
   gameOverLogged = false
