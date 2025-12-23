@@ -30,15 +30,17 @@ import {
 } from './settings.js'
 import { setupCamera, updateCamera } from './camera.js'
 import { getPathTiles } from './path.js'
-import { getState, startWave, updateWaveTime } from './store.js'
-import { initEnemyManager, updateEnemyManager, disposeEnemyManager } from './managers/EnemyManager.js'
-import { initTowerManager, updateTowerManager, disposeTowerManager } from './managers/TowerManager.js'
-import { initProjectileManager, updateProjectileManager, disposeProjectileManager } from './managers/ProjectileManager.js'
+import { getState, startWave, updateWaveTime, checkWaveComplete, reset } from './store.js'
+import { initEnemyManager, updateEnemyManager, disposeEnemyManager, resetEnemyManager } from './managers/EnemyManager.js'
+import { initTowerManager, updateTowerManager, disposeTowerManager, resetTowerManager } from './managers/TowerManager.js'
+import { initProjectileManager, updateProjectileManager, disposeProjectileManager, resetProjectileManager } from './managers/ProjectileManager.js'
+import { initEffectsManager, updateEffectsManager, disposeEffectsManager, resetEffectsManager } from './managers/EffectsManager.js'
 
 let engine = null
 let scene = null
 let shadowGenerator = null
 let cleanupCamera = null
+let gameOverLogged = false
 
 // Initialize the game
 export function init(canvas, container, onBack) {
@@ -73,14 +75,26 @@ export function init(canvas, container, onBack) {
   initEnemyManager(scene)
   initTowerManager(scene, canvas)
   initProjectileManager(scene)
+  initEffectsManager(scene)
 
-  // TEST: Press SPACE to start wave (temporary until UI is built)
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && getState().phase === 'BUILD') {
-      console.log('Starting wave...')
+  // Keyboard controls for game flow
+  const onGameKeyDown = (e) => {
+    const state = getState()
+
+    // SPACE to start wave (during BUILD phase)
+    if (e.code === 'Space' && state.phase === 'BUILD') {
+      console.log(`Starting Wave ${state.currentWave}...`)
+      console.log(`Gold: ${state.gold} | Lives: ${state.lives}`)
       startWave()
     }
-  })
+
+    // R to reset game (during GAME_OVER phase)
+    if (e.code === 'KeyR' && state.phase === 'GAME_OVER') {
+      console.log('Restarting game...')
+      resetGame()
+    }
+  }
+  window.addEventListener('keydown', onGameKeyDown)
 
   // Game loop
   let lastTime = performance.now()
@@ -101,7 +115,25 @@ export function init(canvas, container, onBack) {
       updateWaveTime(dt)
       updateEnemyManager(dt)
       updateProjectileManager(dt)
+
+      // Check if wave is complete
+      if (checkWaveComplete()) {
+        const newState = getState()
+        console.log(`Wave ${newState.currentWave - 1} complete!`)
+        console.log(`Gold: ${newState.gold} | Lives: ${newState.lives}`)
+        console.log('Press SPACE to start next wave')
+      }
     }
+
+    // Check for game over
+    if (state.phase === 'GAME_OVER' && !gameOverLogged) {
+      console.log('=== GAME OVER ===')
+      console.log('Press R to restart')
+      gameOverLogged = true
+    }
+
+    // Always update effects (ragdolls, particles continue after wave)
+    updateEffectsManager(dt)
 
     // Render
     scene.render()
@@ -114,10 +146,12 @@ export function init(canvas, container, onBack) {
   // Return cleanup function
   return () => {
     window.removeEventListener('resize', onResize)
+    window.removeEventListener('keydown', onGameKeyDown)
     if (cleanupCamera) cleanupCamera()
     disposeEnemyManager()
     disposeTowerManager()
     disposeProjectileManager()
+    disposeEffectsManager()
     engine.stopRenderLoop()
     scene.dispose()
     engine.dispose()
@@ -252,6 +286,23 @@ function createPath() {
       mergedPath.receiveShadows = true
     }
   }
+}
+
+// Reset game state
+function resetGame() {
+  // Reset store state
+  reset()
+
+  // Reset managers (clear meshes)
+  resetTowerManager()
+  resetEnemyManager()
+  resetProjectileManager()
+  resetEffectsManager()
+
+  // Reset game over flag
+  gameOverLogged = false
+
+  console.log('Game reset! Press SPACE to start Wave 1')
 }
 
 // Export for external use

@@ -303,6 +303,29 @@ export function getActiveEnemies() {
   })
 }
 
+export function resetEnemyManager() {
+  // Hide all health bar instances
+  for (const instance of healthBarBgInstances) {
+    instance.isVisible = false
+  }
+  for (const instance of healthBarFgInstances) {
+    instance.isVisible = false
+  }
+
+  // Reset thin instance counts
+  const partNames = getPartNames()
+  for (const partName of partNames) {
+    if (normalMeshes && normalMeshes[partName]) {
+      normalMeshes[partName].thinInstanceCount = 0
+      normalMeshes[partName].isVisible = false
+    }
+    if (frostedMeshes && frostedMeshes[partName]) {
+      frostedMeshes[partName].thinInstanceCount = 0
+      frostedMeshes[partName].isVisible = false
+    }
+  }
+}
+
 export function disposeEnemyManager() {
   if (normalMeshes) {
     for (const mesh of Object.values(normalMeshes)) {

@@ -24,7 +24,15 @@ import {
   FLAME_GRAVITY,
   MAX_PROJECTILES
 } from '../settings.js'
-import { getPositionOnPath } from '../path.js'
+import { getPositionOnPath, getHeadingOnPath } from '../path.js'
+import {
+  triggerDeathEffect,
+  spawnMuzzleFlash,
+  spawnCritFlash,
+  spawnFrostExplosion,
+  spawnFireExplosion,
+  spawnLightningImpact
+} from './EffectsManager.js'
 
 let scene = null
 let projectileMeshes = {} // projectileId -> mesh
@@ -133,6 +141,9 @@ function fireProjectile(tower, target, now) {
   const state = getState()
   const newProjectile = state.projectiles[state.projectiles.length - 1]
   createProjectileMesh(newProjectile)
+
+  // Spawn muzzle flash
+  spawnMuzzleFlash(firePoint, tower.type)
 }
 
 function calculateBallisticVelocity(start, target, gravity) {
@@ -301,11 +312,35 @@ function handleHit(projectile, target) {
     // Apply frost slow
     if (projectile.type === 'frost') {
       applyFrost(target.id, TOWERS.frost.slowDuration)
+      spawnFrostExplosion(target.position, TOWERS.frost.aoeRadius)
+    }
+
+    // Trigger death effect if killed
+    if (result.killed) {
+      // Calculate knockback direction from projectile
+      const knockbackDir = {
+        x: projectile.velocity.x,
+        z: projectile.velocity.z
+      }
+      const len = Math.sqrt(knockbackDir.x ** 2 + knockbackDir.z ** 2)
+      if (len > 0) {
+        knockbackDir.x /= len
+        knockbackDir.z /= len
+      }
+
+      triggerDeathEffect(target.position, 0, knockbackDir, true)
+    }
+
+    // Crit flash
+    if (isCrit) {
+      spawnCritFlash(target.position)
     }
   }
 }
 
 function handleFlameExplosion(projectile) {
+  const radius = projectile.aoeRadius || TOWERS.flame.aoeRadius
+  spawnFireExplosion(projectile.position, radius)
   handleAOEDamage(projectile, projectile.position)
 }
 
@@ -319,11 +354,23 @@ function handleAOEDamage(projectile, center) {
     const dist = Math.sqrt(dx * dx + dz * dz)
 
     if (dist <= radius) {
-      damageEnemy(enemy.id, projectile.damage)
+      const result = damageEnemy(enemy.id, projectile.damage)
 
       // Frost AOE also slows
       if (projectile.type === 'frost') {
         applyFrost(enemy.id, TOWERS.frost.slowDuration)
+      }
+
+      // Trigger death effect if killed
+      if (result.killed) {
+        // Knockback direction from explosion center
+        const knockbackDir = { x: -dx, z: -dz }
+        const len = Math.sqrt(knockbackDir.x ** 2 + knockbackDir.z ** 2)
+        if (len > 0) {
+          knockbackDir.x /= len
+          knockbackDir.z /= len
+        }
+        triggerDeathEffect(enemy.position, 0, knockbackDir, true)
       }
     }
   }
@@ -367,11 +414,25 @@ function fireLightning(tower, now) {
 
   // Apply damage to all targets
   for (const target of hitTargets) {
-    damageEnemy(target.id, config.damage)
+    const result = damageEnemy(target.id, config.damage)
+
+    // Trigger lightning impact effect
+    spawnLightningImpact(target.position)
+
+    // Trigger death effect if killed
+    if (result.killed) {
+      triggerDeathEffect(target.position, 0, null, true)
+    }
   }
 
   // Create lightning visual (temporary line)
   createLightningVisual(tower, hitTargets)
+
+  // Muzzle flash at tower
+  const firePoint = getTowerFirePoint(tower.id)
+  if (firePoint) {
+    spawnMuzzleFlash(firePoint, 'lightning')
+  }
 }
 
 function createLightningVisual(tower, targets) {
@@ -439,6 +500,14 @@ function createJaggedPath(start, end) {
   }
 
   return points
+}
+
+export function resetProjectileManager() {
+  // Dispose all projectile meshes
+  for (const mesh of Object.values(projectileMeshes)) {
+    mesh.dispose()
+  }
+  projectileMeshes = {}
 }
 
 export function disposeProjectileManager() {

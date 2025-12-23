@@ -282,6 +282,22 @@ export function getTowerFirePoint(towerId) {
   }
 }
 
+export function resetTowerManager() {
+  // Dispose all tower meshes
+  for (const mesh of Object.values(towerMeshes)) {
+    mesh.dispose()
+  }
+  towerMeshes = {}
+  occupiedTiles.clear()
+
+  // Clear ghost tower
+  if (ghostTower) {
+    ghostTower.dispose()
+    ghostTower = null
+    ghostTowerType = null
+  }
+}
+
 export function disposeTowerManager() {
   window.removeEventListener('keydown', onKeyDown)
   canvas.removeEventListener('pointermove', onPointerMove)
