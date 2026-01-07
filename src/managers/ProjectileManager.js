@@ -328,7 +328,7 @@ function handleHit(projectile, target) {
         knockbackDir.z /= len
       }
 
-      triggerDeathEffect(target.position, 0, knockbackDir, true)
+      triggerDeathEffect(target.position, 0, knockbackDir, true, result.wasBoss)
     }
 
     // Crit flash
@@ -370,7 +370,7 @@ function handleAOEDamage(projectile, center) {
           knockbackDir.x /= len
           knockbackDir.z /= len
         }
-        triggerDeathEffect(enemy.position, 0, knockbackDir, true)
+        triggerDeathEffect(enemy.position, 0, knockbackDir, true, result.wasBoss)
       }
     }
   }
@@ -421,7 +421,7 @@ function fireLightning(tower, now) {
 
     // Trigger death effect if killed
     if (result.killed) {
-      triggerDeathEffect(target.position, 0, null, true)
+      triggerDeathEffect(target.position, 0, null, true, result.wasBoss)
     }
   }
 

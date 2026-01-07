@@ -250,6 +250,38 @@
       font-size: 24px;
       margin-bottom: 32px;
     }
+
+    /* SPAWN BOSS Button */
+    #spawn-boss-btn {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #8B0000 0%, #5C0000 100%);
+      border: 3px solid #FF4500;
+      color: #FFD700;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(255, 69, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s;
+      pointer-events: auto;
+      animation: bossBtnPulse 2s infinite;
+    }
+    #spawn-boss-btn:hover {
+      transform: translateX(-50%) scale(1.1);
+      box-shadow: 0 0 30px rgba(255, 69, 0, 0.8), 0 6px 16px rgba(0, 0, 0, 0.5);
+    }
+    #spawn-boss-btn:active {
+      transform: translateX(-50%) scale(0.95);
+    }
+    @keyframes bossBtnPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(255, 69, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4); }
+      50% { box-shadow: 0 0 35px rgba(255, 69, 0, 0.9), 0 4px 12px rgba(0, 0, 0, 0.4); }
+    }
   </style>
 </head>
 <body>
@@ -313,6 +345,9 @@
       <div id="minimap-container">
         <canvas id="minimap" width="120" height="200"></canvas>
       </div>
+
+      <!-- SPAWN BOSS Button -->
+      <button id="spawn-boss-btn">SPAWN BOSS</button>
     </div>
 
     <!-- Game Over Overlay -->

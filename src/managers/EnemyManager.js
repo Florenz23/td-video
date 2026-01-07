@@ -7,6 +7,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial'
 import { Color3 } from '@babylonjs/core/Maths/math.color'
 import { Vector3 } from '@babylonjs/core/Maths/math.vector'
 import { Matrix } from '@babylonjs/core/Maths/math.vector'
+import { PointLight } from '@babylonjs/core/Lights/pointLight'
 
 import {
   createOrcMaterials,
@@ -14,6 +15,14 @@ import {
   getPartMatrix,
   getPartNames
 } from '../models/orc.js'
+import {
+  createBossMaterials,
+  createBossBaseMeshes,
+  getBossPartMatrix,
+  getBossPartNames,
+  createBossAura,
+  BOSS_PARTS
+} from '../models/boss.js'
 import {
   getPositionOnPath,
   getHeadingOnPath,
@@ -25,12 +34,19 @@ import {
   spawnEnemy,
   updateEnemy,
   removeEnemy,
-  enemyPassed
+  enemyPassed,
+  updateBossRegen,
+  updateBossMinionSpawn
 } from '../store.js'
 import {
   MAX_ENEMIES,
   JITTER_AMPLITUDE,
-  JITTER_FREQUENCY
+  JITTER_FREQUENCY,
+  BOSS_CONFIG,
+  BASE_HP,
+  BASE_SPEED,
+  ENEMY_HP_SCALE,
+  ENEMY_SPEED_SCALE
 } from '../settings.js'
 
 let scene = null
@@ -41,6 +57,14 @@ let healthBarBgBase = null
 let healthBarFgBase = null
 let healthBarBgInstances = []
 let healthBarFgInstances = []
+
+// BOSS specific meshes and effects
+let bossMaterials = null
+let bossMeshes = null
+let bossAura = null
+let bossLight = null
+let bossGroundCracks = []
+let lastBossPosition = null
 
 // Pre-allocated buffers for thin instances (16 floats per matrix)
 const instanceBuffers = {
@@ -67,6 +91,50 @@ export function initEnemyManager(sceneRef) {
 
   // Create health bar meshes
   createHealthBarMeshes()
+
+  // Initialize BOSS meshes and effects
+  initBoss()
+}
+
+function initBoss() {
+  // Create boss materials - dark and menacing
+  bossMaterials = createBossMaterials(scene)
+
+  // Create boss meshes (not using thin instances - direct mesh manipulation for the single boss)
+  bossMeshes = {}
+  const bossPartNames = getBossPartNames()
+
+  for (const partName of bossPartNames) {
+    const part = BOSS_PARTS[partName]
+    const mesh = MeshBuilder.CreateBox(`boss_${partName}`, {
+      width: part.w,
+      height: part.h,
+      depth: part.d
+    }, scene)
+
+    // Determine material based on part
+    let matType = 'skin'
+    if (partName.includes('Tusk') || partName.includes('Horn') || partName === 'chestSkull') matType = 'bone'
+    else if (partName.includes('Shoulder') || partName === 'belt') matType = 'armor'
+    else if (partName.includes('helmet') || partName.includes('Spike') || partName === 'axeBlade') matType = 'metal'
+    else if (partName === 'axeHandle') matType = 'wood'
+    else if (partName.includes('Eye')) matType = 'eye'
+
+    mesh.material = bossMaterials[matType]
+    mesh.isVisible = false
+
+    bossMeshes[partName] = mesh
+  }
+
+  // Create boss aura (pulsing red sphere)
+  bossAura = createBossAura(scene)
+
+  // Create boss point light (red glow)
+  bossLight = new PointLight('bossLight', new Vector3(0, 3, 0), scene)
+  bossLight.diffuse = Color3.FromHexString('#FF4500')
+  bossLight.specular = Color3.FromHexString('#FF0000')
+  bossLight.intensity = 0
+  bossLight.range = 15
 }
 
 function createHealthBarMeshes() {
@@ -169,6 +237,17 @@ export function updateEnemyManager(dt) {
   const healthBarBgData = []
   const healthBarFgData = []
 
+  // Track if boss is active
+  let bossActive = false
+  let bossWorldPos = null
+
+  // Boss abilities - regeneration and minion spawning
+  updateBossRegen(dt)
+  const wave = state.currentWave
+  const baseHp = BASE_HP * Math.pow(ENEMY_HP_SCALE, wave - 1)
+  const baseSpeed = BASE_SPEED * Math.pow(ENEMY_SPEED_SCALE, wave - 1)
+  updateBossMinionSpawn(state.waveTime, baseHp, baseSpeed)
+
   // Process each enemy
   for (const enemy of state.enemies) {
     // Check spawn timing
@@ -181,15 +260,15 @@ export function updateEnemyManager(dt) {
 
     // Check if dying enemy should be removed
     if (enemy.dying) {
-      if (now - enemy.deathTime > 500) {
+      if (now - enemy.deathTime > (enemy.isBoss ? 2000 : 500)) {
         removeEnemy(enemy.id)
       }
       continue
     }
 
-    // Calculate effective speed (apply frost slow)
+    // Calculate effective speed (apply frost slow - boss is immune)
     let effectiveSpeed = enemy.speed
-    if (enemy.frostedUntil > now) {
+    if (enemy.frostedUntil > now && !enemy.isBoss) {
       effectiveSpeed *= 0.5
     }
 
@@ -210,9 +289,10 @@ export function updateEnemyManager(dt) {
     const pathPos = getPositionOnPath(newProgress)
     const heading = getHeadingOnPath(newProgress)
 
-    // Apply jitter for natural movement
-    const jitterX = Math.sin(time * JITTER_FREQUENCY + enemy.jitterSeed) * JITTER_AMPLITUDE
-    const jitterZ = Math.sin(time * JITTER_FREQUENCY * 1.3 + enemy.jitterSeed + 100) * JITTER_AMPLITUDE * 0.5
+    // Apply jitter for natural movement (boss has very subtle jitter)
+    const jitterMult = enemy.isBoss ? 0.2 : 1.0
+    const jitterX = Math.sin(time * JITTER_FREQUENCY + enemy.jitterSeed) * JITTER_AMPLITUDE * jitterMult
+    const jitterZ = Math.sin(time * JITTER_FREQUENCY * 1.3 + enemy.jitterSeed + 100) * JITTER_AMPLITUDE * 0.5 * jitterMult
 
     // Rotate jitter by heading to stay perpendicular to path
     const perpX = jitterX * Math.cos(heading) - jitterZ * Math.sin(heading)
@@ -222,7 +302,23 @@ export function updateEnemyManager(dt) {
     const worldZ = pathPos.z + perpZ
 
     // Calculate walk animation angle
-    const walkAngle = time * effectiveSpeed * 4
+    const walkAngle = time * effectiveSpeed * (enemy.isBoss ? 2 : 4)
+
+    // BOSS RENDERING - special handling
+    if (enemy.isBoss) {
+      bossActive = true
+      bossWorldPos = { x: worldX, z: worldZ }
+      renderBoss(worldX, worldZ, heading, walkAngle, time)
+
+      // Boss health bar is much higher
+      if (enemy.hp < enemy.maxHp) {
+        const hpPercent = enemy.hp / enemy.maxHp
+        const healthBarY = 9.0 // Much higher for boss
+        healthBarBgData.push({ x: worldX, y: healthBarY, z: worldZ, isBoss: true })
+        healthBarFgData.push({ x: worldX, y: healthBarY, z: worldZ, scale: hpPercent, isBoss: true })
+      }
+      continue // Skip normal orc rendering for boss
+    }
 
     // Determine if frosted
     const isFrosted = enemy.frostedUntil > now
@@ -271,9 +367,87 @@ export function updateEnemyManager(dt) {
     }
   }
 
+  // Hide boss meshes if no boss is active
+  if (!bossActive) {
+    hideBoss()
+  }
+
   // Update health bars (only shown for damaged enemies)
   // Using standard instances with billboard mode (thin instances don't work well with billboards)
   updateHealthBarInstances(healthBarBgData, healthBarFgData)
+}
+
+// Render the ULTIMATE HYPER BOSS
+function renderBoss(worldX, worldZ, heading, walkAngle, time) {
+  const bossPartNames = getBossPartNames()
+
+  for (const partName of bossPartNames) {
+    const mesh = bossMeshes[partName]
+    if (!mesh) continue
+
+    const matrix = getBossPartMatrix(partName, worldX, worldZ, heading, walkAngle)
+
+    // Extract position and rotation from matrix
+    const pos = new Vector3()
+    const rot = new Vector3()
+    const scale = new Vector3()
+    matrix.decompose(scale, undefined, pos)
+
+    mesh.position.copyFrom(pos)
+    mesh.rotationQuaternion = null
+    mesh.rotation.y = heading
+
+    // Apply limb animations directly
+    if (partName === 'leftLeg') {
+      mesh.rotation.x = Math.sin(walkAngle) * 0.2
+    } else if (partName === 'rightLeg') {
+      mesh.rotation.x = Math.sin(walkAngle + Math.PI) * 0.2
+    } else if (partName === 'leftArm') {
+      mesh.rotation.x = Math.sin(walkAngle + Math.PI) * 0.15
+    } else if (partName === 'rightArm' || partName === 'axeHandle' || partName === 'axeBlade') {
+      mesh.rotation.x = Math.sin(walkAngle) * 0.15
+    }
+
+    // Pulsing glow for eyes
+    if (partName.includes('Eye')) {
+      const pulse = 0.7 + Math.sin(time * 8) * 0.3
+      mesh.material.emissiveColor = Color3.FromHexString('#FF0000').scale(pulse)
+    }
+
+    mesh.isVisible = true
+  }
+
+  // Update boss aura - pulsing red sphere
+  if (bossAura) {
+    bossAura.position.set(worldX, BOSS_CONFIG.SCALE * 0.8, worldZ)
+    bossAura.isVisible = true
+
+    // Pulsing scale
+    const auraPulse = 1 + Math.sin(time * 3) * 0.15
+    bossAura.scaling.setAll(auraPulse)
+
+    // Pulsing alpha
+    bossAura.material.alpha = 0.1 + Math.sin(time * 4) * 0.05
+  }
+
+  // Update boss light
+  if (bossLight) {
+    bossLight.position.set(worldX, BOSS_CONFIG.SCALE * 1.2, worldZ)
+    bossLight.intensity = 1.5 + Math.sin(time * 5) * 0.5
+  }
+
+  lastBossPosition = { x: worldX, z: worldZ }
+}
+
+// Hide boss meshes when not active
+function hideBoss() {
+  if (bossMeshes) {
+    for (const mesh of Object.values(bossMeshes)) {
+      if (mesh) mesh.isVisible = false
+    }
+  }
+  if (bossAura) bossAura.isVisible = false
+  if (bossLight) bossLight.intensity = 0
 }
 
 // Get enemy position for targeting
@@ -295,12 +469,15 @@ export function getActiveEnemies() {
   const state = getState()
   return state.enemies.filter(e => e.spawned && !e.dying).map(e => {
     const pathPos = getPositionOnPath(e.pathProgress)
+    // Boss is much taller - target center of mass
+    const targetY = e.isBoss ? BOSS_CONFIG.SCALE * 0.8 : 0.8
     return {
       id: e.id,
-      position: { x: pathPos.x, y: 0.8, z: pathPos.z },
+      position: { x: pathPos.x, y: targetY, z: pathPos.z },
       hp: e.hp,
       maxHp: e.maxHp,
-      frosted: e.frostedUntil > Date.now()
+      frosted: e.frostedUntil > Date.now(),
+      isBoss: e.isBoss || false
     }
   })
 }
@@ -326,6 +503,10 @@ export function resetEnemyManager() {
       frostedMeshes[partName].isVisible = false
     }
   }
+
+  // Hide boss
+  hideBoss()
+  lastBossPosition = null
 }
 
 export function disposeEnemyManager() {
@@ -349,4 +530,25 @@ export function disposeEnemyManager() {
   }
   healthBarBgInstances = []
   healthBarFgInstances = []
+
+  // Dispose boss resources
+  if (bossMeshes) {
+    for (const mesh of Object.values(bossMeshes)) {
+      if (mesh) mesh.dispose()
+    }
+    bossMeshes = null
+  }
+  if (bossAura) {
+    bossAura.dispose()
+    bossAura = null
+  }
+  if (bossLight) {
+    bossLight.dispose()
+    bossLight = null
+  }
+  for (const crack of bossGroundCracks) {
+    crack.dispose()
+  }
+  bossGroundCracks = []
+  bossMaterials = null
 }

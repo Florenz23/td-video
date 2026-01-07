@@ -29,7 +29,8 @@ import {
   SCORCH_MARK_LIFETIME,
   CRIT_FLASH_LIFETIME,
   KNOCKBACK_FORCE,
-  GRAVITY
+  GRAVITY,
+  BOSS_CONFIG
 } from '../settings.js'
 
 let scene = null
@@ -738,22 +739,26 @@ function updateGoldPopupsEffect(dt, now) {
 
   for (const popup of activeGoldPopups) {
     const age = now - popup.spawnTime
+    // Boss gold popup lasts longer
+    const lifetime = popup.isBoss ? GOLD_POPUP_LIFETIME * 2 : GOLD_POPUP_LIFETIME
 
-    if (age > GOLD_POPUP_LIFETIME) {
+    if (age > lifetime) {
       toRemove.push(popup)
       continue
     }
 
-    const progress = age / GOLD_POPUP_LIFETIME
+    const progress = age / lifetime
 
-    // Float upward
-    popup.mesh.position.y = popup.startY + progress * 1.5
+    // Float upward (boss popup rises more)
+    const riseAmount = popup.isBoss ? 4 : 1.5
+    popup.mesh.position.y = popup.startY + progress * riseAmount
 
     // Fade out
     popup.mesh.visibility = 1 - progress
 
-    // Scale up slightly
-    popup.mesh.scaling.setAll(1 + progress * 0.3)
+    // Scale up slightly (boss popup grows more)
+    const scaleAmount = popup.isBoss ? 0.8 : 0.3
+    popup.mesh.scaling.setAll(1 + progress * scaleAmount)
   }
 
   for (const popup of toRemove) {
@@ -766,7 +771,13 @@ function updateGoldPopupsEffect(dt, now) {
 // COMBINED DEATH EFFECT
 // ============================================
 
-export function triggerDeathEffect(position, heading, knockbackDir = null, showGold = true) {
+export function triggerDeathEffect(position, heading, knockbackDir = null, showGold = true, wasBoss = false) {
+  if (wasBoss) {
+    // MASSIVE BOSS DEATH EXPLOSION
+    triggerBossDeathEffect(position, heading)
+    return
+  }
+
   // Spawn voxel shatter
   spawnVoxelShatter(position, heading)
 
@@ -780,6 +791,156 @@ export function triggerDeathEffect(position, heading, knockbackDir = null, showG
   if (showGold) {
     spawnGoldPopupEffect(position, 10)
   }
+}
+
+// ============================================
+// BOSS DEATH - ULTIMATE EXPLOSION
+// ============================================
+
+export function triggerBossDeathEffect(position, heading) {
+  const now = Date.now()
+
+  console.log('%c THE BOSS HAS BEEN SLAIN!', 'color: gold; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 4px black;')
+
+  // MASSIVE fire explosion
+  for (let i = 0; i < 5; i++) {
+    const offset = {
+      x: position.x + (Math.random() - 0.5) * 8,
+      y: position.y + Math.random() * 4,
+      z: position.z + (Math.random() - 0.5) * 8
+    }
+    setTimeout(() => spawnFireExplosion(offset, BOSS_CONFIG.DEATH_EXPLOSION_RADIUS * 0.4), i * 100)
+  }
+
+  // Main explosion sphere - giant
+  const mainExplosion = MeshBuilder.CreateSphere('bossDeathExplosion', {
+    diameter: 2,
+    segments: 16
+  }, scene)
+
+  const explosionMat = new StandardMaterial('bossExplosionMat', scene)
+  explosionMat.diffuseColor = Color3.FromHexString('#FF4500')
+  explosionMat.emissiveColor = Color3.FromHexString('#FF6600')
+  explosionMat.alpha = 0.9
+  mainExplosion.material = explosionMat
+  mainExplosion.position.set(position.x, position.y + 3, position.z)
+
+  activeExplosions.push({
+    mesh: mainExplosion,
+    spawnTime: now,
+    lifetime: 1500,
+    type: 'bossExplosion',
+    maxScale: BOSS_CONFIG.DEATH_EXPLOSION_RADIUS * 2
+  })
+
+  // Shockwave ring
+  const shockwave = MeshBuilder.CreateTorus('bossShockwave', {
+    diameter: 4,
+    thickness: 1,
+    tessellation: 32
+  }, scene)
+
+  const shockwaveMat = new StandardMaterial('bossShockwaveMat', scene)
+  shockwaveMat.diffuseColor = Color3.FromHexString('#FF0000')
+  shockwaveMat.emissiveColor = Color3.FromHexString('#FF4500')
+  shockwaveMat.alpha = 0.7
+  shockwave.material = shockwaveMat
+  shockwave.position.set(position.x, 0.5, position.z)
+  shockwave.rotation.x = Math.PI / 2
+
+  activeExplosions.push({
+    mesh: shockwave,
+    spawnTime: now,
+    lifetime: 1200,
+    type: 'bossShockwave',
+    maxScale: BOSS_CONFIG.DEATH_EXPLOSION_RADIUS * 3
+  })
+
+  // TONS of debris/voxels flying everywhere
+  for (let i = 0; i < 60; i++) {
+    const voxel = MeshBuilder.CreateBox(`bossDebris_${i}`, {
+      size: 0.2 + Math.random() * 0.4
+    }, scene)
+
+    // Random red/orange/dark colors
+    const debrisMat = new StandardMaterial(`bossDebrisMat_${i}`, scene)
+    const colorChoice = Math.random()
+    if (colorChoice < 0.33) {
+      debrisMat.diffuseColor = Color3.FromHexString(BOSS_CONFIG.COLORS.SKIN)
+      debrisMat.emissiveColor = Color3.FromHexString(BOSS_CONFIG.COLORS.SKIN_GLOW).scale(0.3)
+    } else if (colorChoice < 0.66) {
+      debrisMat.diffuseColor = Color3.FromHexString(BOSS_CONFIG.COLORS.ARMOR)
+    } else {
+      debrisMat.diffuseColor = Color3.FromHexString(BOSS_CONFIG.COLORS.METAL)
+      debrisMat.emissiveColor = new Color3(0.1, 0.05, 0.15)
+    }
+    voxel.material = debrisMat
+
+    voxel.position.set(
+      position.x + (Math.random() - 0.5) * 4,
+      position.y + Math.random() * 6,
+      position.z + (Math.random() - 0.5) * 4
+    )
+
+    const angle = Math.random() * Math.PI * 2
+    const speed = 5 + Math.random() * 15
+
+    activeVoxels.push({
+      mesh: voxel,
+      spawnTime: now,
+      velocity: {
+        x: Math.cos(angle) * speed,
+        y: 8 + Math.random() * 12,
+        z: Math.sin(angle) * speed
+      },
+      rotationSpeed: {
+        x: (Math.random() - 0.5) * 15,
+        y: (Math.random() - 0.5) * 15,
+        z: (Math.random() - 0.5) * 15
+      },
+      isDebris: true
+    })
+  }
+
+  // Multiple death lights for dramatic effect
+  for (let i = 0; i < 8; i++) {
+    const offset = {
+      x: position.x + (Math.random() - 0.5) * 6,
+      y: position.y + Math.random() * 4,
+      z: position.z + (Math.random() - 0.5) * 6
+    }
+    setTimeout(() => spawnDeathLight(offset), i * 50)
+  }
+
+  // Giant scorch mark
+  spawnScorchMark(position, BOSS_CONFIG.DEATH_EXPLOSION_RADIUS)
+
+  // Massive gold popup
+  spawnBossGoldPopup(position, BOSS_CONFIG.DEATH_GOLD_REWARD)
+}
+
+// Giant gold popup for boss kill
+function spawnBossGoldPopup(position, amount) {
+  const now = Date.now()
+
+  const popup = MeshBuilder.CreatePlane('bossGoldPopup', { width: 3, height: 1.5 }, scene)
+  popup.billboardMode = 7
+
+  const popupMat = new StandardMaterial('bossPopupMat', scene)
+  popupMat.diffuseColor = Color3.FromHexString(COLORS.GOLD)
+  popupMat.emissiveColor = Color3.FromHexString(COLORS.GOLD)
+  popupMat.alpha = 1
+  popup.material = popupMat
+
+  popup.position.set(position.x, position.y + 8, position.z)
+
+  activeGoldPopups.push({
+    mesh: popup,
+    spawnTime: now,
+    amount,
+    startY: position.y + 8,
+    isBoss: true
+  })
 }
 
 // ============================================

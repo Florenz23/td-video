@@ -125,6 +125,53 @@ export const ENEMY_SPEED_SCALE = 1.05 // Per wave multiplier
 export const JITTER_AMPLITUDE = 0.25
 export const JITTER_FREQUENCY = 2.0
 
+// ============================================
+// ULTIMATE HYPER BOSS CONFIG
+// ============================================
+export const BOSS_CONFIG = {
+  // Spawns every N waves (wave 5, 10, 15...)
+  SPAWN_WAVE_INTERVAL: 5,
+
+  // Base stats (absolutely insane)
+  BASE_HP: 100000,
+  HP_SCALE_PER_SPAWN: 2.0, // Doubles HP each time boss appears
+  SPEED: 0.8, // Slow but unstoppable
+
+  // Size multiplier (4x normal orc!)
+  SCALE: 4.0,
+
+  // Special abilities
+  REGEN_PER_SECOND: 500, // Regenerates 500 HP/sec
+  IMMUNE_TO_SLOW: true,
+
+  // Damage aura (hurts nearby towers? Just visual for now)
+  AURA_RADIUS: 8,
+  AURA_DAMAGE: 0, // Visual only
+
+  // Minion spawning
+  SPAWN_MINIONS: true,
+  MINION_SPAWN_INTERVAL: 3, // Spawn minions every 3 seconds
+  MINIONS_PER_SPAWN: 3,
+
+  // Ground shake intensity
+  GROUND_SHAKE_INTENSITY: 0.3,
+
+  // Death explosion
+  DEATH_EXPLOSION_RADIUS: 15,
+  DEATH_GOLD_REWARD: 5000,
+
+  // Visual effects
+  COLORS: {
+    SKIN: '#8B0000', // Dark red
+    SKIN_GLOW: '#FF4500', // Orange-red glow
+    ARMOR: '#2F1810', // Dark brown
+    METAL: '#1a1a2e', // Dark purple-black
+    EYES: '#FF0000', // Glowing red eyes
+    AURA: '#FF000066', // Red transparent aura
+    AURA_PULSE: '#FF6600' // Orange pulse
+  }
+}
+
 // Wave settings
 export const BASE_ENEMY_COUNT = 200
 export const ENEMY_INCREMENT_PER_WAVE = 100

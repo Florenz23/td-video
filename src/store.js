@@ -15,7 +15,8 @@ import {
   GOLD_PER_KILL,
   TOWERS,
   MAX_RAGDOLLS,
-  MAX_PARTICLES
+  MAX_PARTICLES,
+  BOSS_CONFIG
 } from './settings.js'
 
 // Initial state
@@ -117,10 +118,45 @@ export function startWave() {
   const speed = BASE_SPEED * Math.pow(ENEMY_SPEED_SCALE, wave - 1)
 
   const enemies = []
-  for (let i = 0; i < enemyCount; i++) {
+
+  // Check if this is a BOSS WAVE
+  const isBossWave = wave % BOSS_CONFIG.SPAWN_WAVE_INTERVAL === 0
+  const bossNumber = Math.floor(wave / BOSS_CONFIG.SPAWN_WAVE_INTERVAL)
+
+  if (isBossWave) {
+    // SPAWN THE ULTIMATE HYPER BOSS
+    const bossHp = BOSS_CONFIG.BASE_HP * Math.pow(BOSS_CONFIG.HP_SCALE_PER_SPAWN, bossNumber - 1)
+    console.log(`%c BOSS WAVE ${wave}! THE ULTIMATE HYPER BOSS APPROACHES!`, 'color: red; font-size: 20px; font-weight: bold;')
+    console.log(`%c Boss HP: ${bossHp.toLocaleString()}`, 'color: orange; font-size: 14px;')
+
     enemies.push({
       id: nextEnemyId++,
-      spawnDelay: i * SPAWN_DELAY,
+      spawnDelay: 0, // Boss spawns immediately
+      spawned: false,
+      pathProgress: 0,
+      hp: bossHp,
+      maxHp: bossHp,
+      speed: BOSS_CONFIG.SPEED,
+      dying: false,
+      deathTime: 0,
+      jitterSeed: Math.random() * 1000,
+      frostedUntil: 0,
+      // BOSS SPECIFIC PROPERTIES
+      isBoss: true,
+      bossNumber,
+      lastMinionSpawn: 0,
+      lastRegenTick: 0
+    })
+  }
+
+  // Regular enemies (fewer on boss waves)
+  const regularCount = isBossWave ? Math.floor(enemyCount * 0.5) : enemyCount
+  const startDelay = isBossWave ? 2 : 0 // Delay regular spawns on boss wave
+
+  for (let i = 0; i < regularCount; i++) {
+    enemies.push({
+      id: nextEnemyId++,
+      spawnDelay: startDelay + i * SPAWN_DELAY,
       spawned: false,
       pathProgress: 0,
       hp,
@@ -129,7 +165,8 @@ export function startWave() {
       dying: false,
       deathTime: 0,
       jitterSeed: Math.random() * 1000,
-      frostedUntil: 0
+      frostedUntil: 0,
+      isBoss: false
     })
   }
 
@@ -167,13 +204,20 @@ export function damageEnemy(id, damage) {
 
   const newHp = enemy.hp - damage
   if (newHp <= 0) {
+    // Boss gives massive gold reward!
+    const goldReward = enemy.isBoss ? BOSS_CONFIG.DEATH_GOLD_REWARD : GOLD_PER_KILL
+
+    if (enemy.isBoss) {
+      console.log(`%c BOSS DEFEATED! +${goldReward} GOLD!`, 'color: gold; font-size: 24px; font-weight: bold;')
+    }
+
     setState({
       enemies: state.enemies.map(e =>
         e.id === id ? { ...e, hp: 0, dying: true, deathTime: Date.now() } : e
       ),
-      gold: state.gold + GOLD_PER_KILL
+      gold: state.gold + goldReward
     })
-    return { killed: true, gold: GOLD_PER_KILL }
+    return { killed: true, gold: goldReward, wasBoss: enemy.isBoss }
   }
 
   setState({
@@ -185,6 +229,12 @@ export function damageEnemy(id, damage) {
 }
 
 export function applyFrost(id, duration) {
+  const enemy = state.enemies.find(e => e.id === id)
+  // Boss is IMMUNE to slow!
+  if (enemy && enemy.isBoss && BOSS_CONFIG.IMMUNE_TO_SLOW) {
+    return // No effect on boss
+  }
+
   const until = Date.now() + duration * 1000
   setState({
     enemies: state.enemies.map(e =>
@@ -199,8 +249,78 @@ export function removeEnemy(id) {
   })
 }
 
+// Boss regeneration - heals boss over time
+export function updateBossRegen(dt) {
+  const now = Date.now()
+  const bosses = state.enemies.filter(e => e.isBoss && e.spawned && !e.dying)
+
+  for (const boss of bosses) {
+    // Regenerate HP
+    const regenAmount = BOSS_CONFIG.REGEN_PER_SECOND * dt
+    const newHp = Math.min(boss.hp + regenAmount, boss.maxHp)
+
+    if (newHp !== boss.hp) {
+      setState({
+        enemies: state.enemies.map(e =>
+          e.id === boss.id ? { ...e, hp: newHp, lastRegenTick: now } : e
+        )
+      })
+    }
+  }
+}
+
+// Boss spawns minions periodically
+export function updateBossMinionSpawn(waveTime, baseHp, baseSpeed) {
+  if (!BOSS_CONFIG.SPAWN_MINIONS) return
+
+  const bosses = state.enemies.filter(e => e.isBoss && e.spawned && !e.dying)
+
+  for (const boss of bosses) {
+    // Check if it's time to spawn minions
+    const timeSinceLastSpawn = waveTime - boss.lastMinionSpawn
+    if (timeSinceLastSpawn >= BOSS_CONFIG.MINION_SPAWN_INTERVAL) {
+      // Spawn minions near the boss
+      const newMinions = []
+      for (let i = 0; i < BOSS_CONFIG.MINIONS_PER_SPAWN; i++) {
+        newMinions.push({
+          id: nextEnemyId++,
+          spawnDelay: 0,
+          spawned: true,
+          pathProgress: Math.max(0, boss.pathProgress - 0.02 - (i * 0.01)),
+          hp: baseHp * 0.5, // Minions are weaker
+          maxHp: baseHp * 0.5,
+          speed: baseSpeed * 1.2, // But faster
+          dying: false,
+          deathTime: 0,
+          jitterSeed: Math.random() * 1000,
+          frostedUntil: 0,
+          isBoss: false,
+          isMinion: true // Spawned by boss
+        })
+      }
+
+      setState({
+        enemies: [
+          ...state.enemies.map(e =>
+            e.id === boss.id ? { ...e, lastMinionSpawn: waveTime } : e
+          ),
+          ...newMinions
+        ]
+      })
+    }
+  }
+}
+
 export function enemyPassed(id) {
-  const newLives = state.lives - 1
+  const enemy = state.enemies.find(e => e.id === id)
+  // Boss passing = instant game over (or takes ALL lives)
+  const livesLost = enemy && enemy.isBoss ? state.lives : 1
+
+  if (enemy && enemy.isBoss) {
+    console.log('%c THE BOSS HAS BREACHED YOUR DEFENSES! GAME OVER!', 'color: red; font-size: 20px; font-weight: bold;')
+  }
+
+  const newLives = state.lives - livesLost
   removeEnemy(id)
 
   if (newLives <= 0) {
@@ -290,6 +410,46 @@ export function spawnGoldPopup(popup) {
 
 export function updateGoldPopups(updater) {
   setState({ goldPopups: updater(state.goldPopups) })
+}
+
+// Spawn boss instantly (for testing)
+let nextEnemyIdForBoss = 10000 // Separate ID range for spawned bosses
+export function spawnBossInstantly() {
+  const bossHp = BOSS_CONFIG.BASE_HP
+  console.log(`%c BOSS SUMMONED! HP: ${bossHp.toLocaleString()}`, 'color: red; font-size: 20px; font-weight: bold;')
+
+  const boss = {
+    id: nextEnemyIdForBoss++,
+    spawnDelay: 0,
+    spawned: true, // Spawn immediately
+    pathProgress: 0,
+    hp: bossHp,
+    maxHp: bossHp,
+    speed: BOSS_CONFIG.SPEED,
+    dying: false,
+    deathTime: 0,
+    jitterSeed: Math.random() * 1000,
+    frostedUntil: 0,
+    isBoss: true,
+    bossNumber: 1,
+    lastMinionSpawn: 0,
+    lastRegenTick: 0
+  }
+
+  // If not in wave phase, start a wave first
+  if (state.phase !== 'WAVE') {
+    setState({
+      phase: 'WAVE',
+      waveTime: 0,
+      enemies: [boss],
+      ghostPosition: null
+    })
+  } else {
+    // Add boss to existing enemies
+    setState({
+      enemies: [...state.enemies, boss]
+    })
+  }
 }
 
 // Game reset

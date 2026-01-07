@@ -2,7 +2,7 @@
 // UI MANAGER - HUD elements and interactions
 // ============================================
 
-import { getState, selectTowerType, startWave, reset } from '../store.js'
+import { getState, selectTowerType, startWave, reset, spawnBossInstantly } from '../store.js'
 import { TOWERS } from '../settings.js'
 
 // DOM elements
@@ -16,6 +16,7 @@ let towerButtons = null
 let gameOverOverlay = null
 let gameOverStats = null
 let restartBtn = null
+let spawnBossBtn = null
 
 // Callbacks
 let onResetGame = null
@@ -39,9 +40,19 @@ export function initUIManager(resetCallback) {
   setupTowerButtons()
   setupActionButton()
   setupRestartButton()
+  setupSpawnBossButton()
 
   // Initial update
   updateUI()
+}
+
+function setupSpawnBossButton() {
+  spawnBossBtn = document.getElementById('spawn-boss-btn')
+  if (spawnBossBtn) {
+    spawnBossBtn.addEventListener('click', () => {
+      spawnBossInstantly()
+    })
+  }
 }
 
 function setupTowerButtons() {
